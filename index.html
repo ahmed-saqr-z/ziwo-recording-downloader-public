@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZIWO Recording Downloader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #AC3378;
+            --primary-hover: #8a2a60;
+            --dark-navy: #050B1D;
+            --dark-blue: #162C52;
+            --text-primary: #364152;
+            --text-secondary: rgba(0, 0, 0, 0.54);
+            --bg-light: #F4F4F4;
+            --border: #E0E0E0;
+            --success: #4CAF50;
+            --error: #f44336;
+            --warning: #ff9800;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 16px 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            height: 40px;
+        }
+
+        .session-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .session-active {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--success);
+        }
+
+        .session-active::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
+        .btn-logout {
+            background: none;
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--dark-navy);
+        }
+
+        .card-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(172, 51, 120, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        /* Password Input */
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            padding: 4px;
+        }
+
+        .password-toggle:hover {
+            color: var(--primary);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-flex;
+            cursor: help;
+        }
+
+        .tooltip-icon {
+            width: 16px;
+            height: 16px;
+            background: var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--dark-navy);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 400;
+            white-space: nowrap;
+            margin-bottom: 8px;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 100;
+        }
+
+        .tooltip-text::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--dark-navy);
+        }
+
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border);
+            cursor: not-allowed;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        /* Radio Buttons */
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .radio-option {
+            flex: 1;
+            position: relative;
+        }
+
+        .radio-option input {
+            position: absolute;
+            opacity: 0;
+        }
+
+        .radio-option label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .radio-option input:checked + label {
+            border-color: var(--primary);
+            background: rgba(172, 51, 120, 0.05);
+        }
+
+        .radio-option label:hover {
+            border-color: var(--primary);
+        }
+
+        .radio-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .radio-title {
+            font-weight: 500;
+            color: var(--dark-navy);
+        }
+
+        .radio-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Textarea */
+        .form-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(172, 51, 120, 0.1);
+        }
+
+        /* File Upload */
+        .file-upload {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload:hover {
+            border-color: var(--primary);
+            background: rgba(172, 51, 120, 0.02);
+        }
+
+        .file-upload.dragover {
+            border-color: var(--primary);
+            background: rgba(172, 51, 120, 0.05);
+        }
+
+        .file-upload-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .file-upload-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .file-upload-text span {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .file-selected {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .divider span {
+            padding: 0 16px;
+        }
+
+        /* Warning */
+        .warning-box {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .warning-icon {
+            color: var(--warning);
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        /* Progress Section */
+        .progress-section {
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar-wrapper {
+            background: var(--bg-light);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .progress-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .progress-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .progress-item:last-child {
+            border-bottom: none;
+        }
+
+        .progress-item.success {
+            color: var(--success);
+        }
+
+        .progress-item.error {
+            color: var(--error);
+        }
+
+        .progress-item.pending {
+            color: var(--text-secondary);
+        }
+
+        /* FAQ Section */
+        .faq-section {
+            margin-top: 40px;
+        }
+
+        .faq-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--dark-navy);
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .faq-question {
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 16px 0;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-primary);
+        }
+
+        .faq-question:hover {
+            color: var(--primary);
+        }
+
+        .faq-answer {
+            display: none;
+            padding: 0 0 16px 0;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .faq-item.open .faq-answer {
+            display: block;
+        }
+
+        .faq-item.open .faq-question .faq-arrow {
+            transform: rotate(180deg);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 32px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-error {
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        .alert-success {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        /* File Error Box */
+        .file-error-box {
+            margin-top: 16px;
+            padding: 16px;
+            background: #FFF5F5;
+            border: 2px solid var(--error);
+            border-radius: 8px;
+        }
+
+        .file-error-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .file-error-icon {
+            font-size: 20px;
+        }
+
+        .file-error-title {
+            color: var(--error);
+            font-size: 15px;
+        }
+
+        .file-error-message {
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(244, 67, 54, 0.2);
+        }
+
+        .file-error-hint {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .file-error-hint strong {
+            color: var(--text-primary);
+        }
+
+        .file-error-hint ul {
+            margin: 8px 0 12px 20px;
+            line-height: 1.8;
+        }
+
+        .file-error-hint li {
+            margin-bottom: 4px;
+        }
+
+        .file-error-formats {
+            display: inline-block;
+            background: var(--bg-light);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 0 16px;
+            }
+
+            .card {
+                padding: 24px;
+            }
+
+            .radio-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <img src="9e1f2272-985a-462a-b041-e6582305d159_medium-removebg-preview.png" alt="ZIWO" class="logo">
+        <div class="session-info" id="sessionInfo" style="display: none;">
+            <span class="session-active">Session Active</span>
+            <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Login Card -->
+        <div class="card" id="loginCard">
+            <h2 class="card-title">Connect to Your Instance</h2>
+            <p class="card-subtitle">Enter your ZIWO credentials to access call recordings</p>
+
+            <div id="loginError" class="alert alert-error hidden"></div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    Instance Name
+                    <span class="tooltip">
+                        <span class="tooltip-icon">?</span>
+                        <span class="tooltip-text">Your instance name appears in your ZIWO URL (e.g., "company" from company.aswat.co)</span>
+                    </span>
+                </label>
+                <input type="text" class="form-input" id="instanceName" placeholder="e.g., mycompany">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-input" id="username" placeholder="Enter your username">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="password-wrapper">
+                    <input type="password" class="form-input" id="password" placeholder="Enter your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-full" id="loginBtn" onclick="login()">
+                Connect
+            </button>
+        </div>
+
+        <!-- Download Card (Hidden until logged in) -->
+        <div class="card hidden" id="downloadCard">
+            <h2 class="card-title">Download Recordings</h2>
+            <p class="card-subtitle">Download single or multiple call recordings</p>
+
+            <!-- Download Mode Selection -->
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" name="downloadMode" id="modeSingle" value="single" checked onchange="updateMode()">
+                    <label for="modeSingle">
+                        <span class="radio-icon">📞</span>
+                        <span class="radio-title">Single Recording</span>
+                        <span class="radio-desc">Download one call</span>
+                    </label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" name="downloadMode" id="modeMultiple" value="multiple" onchange="updateMode()">
+                    <label for="modeMultiple">
+                        <span class="radio-icon">📁</span>
+                        <span class="radio-title">Multiple Recordings</span>
+                        <span class="radio-desc">Bulk download</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Single Mode Input -->
+            <div id="singleMode">
+                <div class="form-group">
+                    <label class="form-label">
+                        Call ID
+                        <span class="tooltip">
+                            <span class="tooltip-icon">?</span>
+                            <span class="tooltip-text">The unique identifier for the call. Find this in your call history.</span>
+                        </span>
+                    </label>
+                    <input type="text" class="form-input" id="singleCallId" placeholder="Enter call ID">
+                </div>
+            </div>
+
+            <!-- Multiple Mode Input -->
+            <div id="multipleMode" class="hidden">
+                <div id="batchWarning" class="warning-box hidden">
+                    <span class="warning-icon">⚠️</span>
+                    <div>
+                        <strong>Large batch detected.</strong> Downloading many recordings may take a while and use significant memory. Consider downloading in smaller batches if you experience issues.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Paste Call IDs
+                        <span class="tooltip">
+                            <span class="tooltip-icon">?</span>
+                            <span class="tooltip-text">Enter one call ID per line</span>
+                        </span>
+                    </label>
+                    <textarea class="form-textarea" id="multipleCallIds" placeholder="Enter call IDs, one per line..." oninput="checkBatchSize()"></textarea>
+                </div>
+
+                <div class="divider"><span>OR</span></div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Upload File
+                        <span class="tooltip">
+                            <span class="tooltip-icon">?</span>
+                            <span class="tooltip-text">Upload a Call History report (with "Call ID" column) or a simple list of Call IDs</span>
+                        </span>
+                    </label>
+                    <div class="file-upload" id="fileUpload" onclick="document.getElementById('csvFile').click()">
+                        <div class="file-upload-icon">📄</div>
+                        <div class="file-upload-text">
+                            <span>Click to upload</span> or drag and drop<br>
+                            Call History report or list of Call IDs (.csv or .xlsx)
+                        </div>
+                        <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)">
+                        <div class="file-selected hidden" id="fileSelected"></div>
+                    </div>
+                    <div class="file-error-box hidden" id="fileError">
+                        <div class="file-error-header">
+                            <span class="file-error-icon">⚠️</span>
+                            <strong class="file-error-title">Unable to read file</strong>
+                        </div>
+                        <p class="file-error-message" id="fileErrorMessage"></p>
+                        <div class="file-error-hint">
+                            <strong>Accepted formats:</strong>
+                            <ul>
+                                <li><strong>Call History Report</strong> - Export from ZIWO with a "Call ID" column</li>
+                                <li><strong>Simple List</strong> - One Call ID per row (UUID format)</li>
+                            </ul>
+                            <span class="file-error-formats">Supported file types: .csv, .xlsx, .xls</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-full" id="downloadBtn" onclick="startDownload()">
+                Download Recording
+            </button>
+
+            <!-- Progress Section -->
+            <div class="progress-section" id="progressSection">
+                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+                    <h3 style="font-size: 16px; margin-bottom: 16px;">Download Progress</h3>
+
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+
+                    <div class="progress-text">
+                        <span id="progressStatus">Preparing...</span>
+                        <span id="progressCount">0/0</span>
+                    </div>
+
+                    <div class="progress-list" id="progressList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="card faq-section">
+            <h3 class="faq-title">Frequently Asked Questions</h3>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    Where can I find my Call ID?
+                    <span class="faq-arrow">▼</span>
+                </button>
+                <div class="faq-answer">
+                    You can find the Call ID in your ZIWO dashboard under Call History. Each call has a unique identifier that you can copy and use here to download the recording.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    What file formats are supported?
+                    <span class="faq-arrow">▼</span>
+                </button>
+                <div class="faq-answer">
+                    We support two file formats:<br><br>
+                    <strong>1. Call History Report (.csv or .xlsx)</strong><br>
+                    Export your Call History report directly from ZIWO. The tool will automatically find and extract the "Call ID" column.<br><br>
+                    <strong>2. Simple List (.csv or .xlsx)</strong><br>
+                    A single column with Call IDs only. Example:<br>
+                    <code>7c32ceb0-ef2e-4de1-bb23-760acc1f0cff</code><br>
+                    <code>8a00445d-5140-4246-a615-a1e5b6f197ea</code>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    What happens if a recording is not found?
+                    <span class="faq-arrow">▼</span>
+                </button>
+                <div class="faq-answer">
+                    If a recording cannot be found, it will be skipped and shown in the failed list. All successful recordings will still be included in your download. You'll see a summary of which downloads succeeded and which failed.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    Is there a limit to how many recordings I can download?
+                    <span class="faq-arrow">▼</span>
+                </button>
+                <div class="faq-answer">
+                    There's no hard limit, but downloading more than 100 recordings at once may take longer and use more memory. For very large batches, we recommend downloading in smaller groups for the best experience.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <button class="faq-question" onclick="toggleFaq(this)">
+                    In what format are recordings downloaded?
+                    <span class="faq-arrow">▼</span>
+                </button>
+                <div class="faq-answer">
+                    All recordings are downloaded in MP3 format. When downloading multiple recordings, they will be bundled into a single ZIP file for convenience.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        Need help? Contact us at <a href="mailto:support@ziwo.io">support@ziwo.io</a>
+        <br><br>
+        &copy; 2026 ZIWO. All rights reserved.
+    </footer>
+
+    <script>
+        // Global state
+        let accessToken = null;
+        let instanceName = null;
+
+        // Toggle password visibility
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            }
+        }
+
+        // Login function
+        async function login() {
+            const instance = document.getElementById('instanceName').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Validation
+            if (!instance || !username || !password) {
+                showLoginError('Please fill in all fields');
+                return;
+            }
+
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+            hideLoginError();
+
+            try {
+                const url = `https://${instance}-api.aswat.co/auth/login`;
+                const formData = new URLSearchParams();
+                formData.append('username', username);
+                formData.append('password', password);
+                formData.append('remember', 'true');
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.result === true && data.content && data.content.access_token) {
+                    accessToken = data.content.access_token;
+                    instanceName = instance;
+
+                    // Show download card, hide login
+                    document.getElementById('loginCard').classList.add('hidden');
+                    document.getElementById('downloadCard').classList.remove('hidden');
+                    document.getElementById('sessionInfo').style.display = 'flex';
+                } else {
+                    showLoginError('Invalid credentials. Please check your instance name, username, and password.');
+                }
+            } catch (error) {
+                showLoginError('Connection failed. Please check your instance name and try again.');
+            }
+
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = 'Connect';
+        }
+
+        // Logout function
+        function logout() {
+            accessToken = null;
+            instanceName = null;
+
+            // Reset form
+            document.getElementById('instanceName').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('singleCallId').value = '';
+            document.getElementById('multipleCallIds').value = '';
+            document.getElementById('csvFile').value = '';
+            document.getElementById('fileSelected').classList.add('hidden');
+
+            // Show login, hide download
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('downloadCard').classList.add('hidden');
+            document.getElementById('sessionInfo').style.display = 'none';
+            document.getElementById('progressSection').classList.remove('active');
+        }
+
+        // Show/hide login error
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideLoginError() {
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        // Update download mode
+        function updateMode() {
+            const isSingle = document.getElementById('modeSingle').checked;
+            document.getElementById('singleMode').classList.toggle('hidden', !isSingle);
+            document.getElementById('multipleMode').classList.toggle('hidden', isSingle);
+            document.getElementById('downloadBtn').textContent = isSingle ? 'Download Recording' : 'Download Recordings';
+        }
+
+        // Check batch size for warning
+        function checkBatchSize() {
+            const text = document.getElementById('multipleCallIds').value;
+            const ids = text.split('\n').filter(id => id.trim());
+            document.getElementById('batchWarning').classList.toggle('hidden', ids.length < 100);
+        }
+
+        // Handle file select (CSV or Excel)
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileError = document.getElementById('fileError');
+            fileError.classList.add('hidden');
+
+            const fileName = file.name.toLowerCase();
+            const isCSV = fileName.endsWith('.csv');
+            const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+            if (!isCSV && !isExcel) {
+                showFileError('Unsupported file format. Please upload a .csv or .xlsx file.');
+                return;
+            }
+
+            document.getElementById('fileSelected').textContent = `Selected: ${file.name}`;
+            document.getElementById('fileSelected').classList.remove('hidden');
+
+            if (isCSV) {
+                parseCSVFile(file);
+            } else {
+                parseExcelFile(file);
+            }
+        }
+
+        // Show file error
+        function showFileError(message) {
+            const fileError = document.getElementById('fileError');
+            const fileErrorMessage = document.getElementById('fileErrorMessage');
+            fileErrorMessage.textContent = message;
+            fileError.classList.remove('hidden');
+            document.getElementById('fileSelected').classList.add('hidden');
+            document.getElementById('csvFile').value = '';
+        }
+
+        // Parse CSV file
+        function parseCSVFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const callIds = extractCallIdsFromText(text);
+
+                if (callIds.length === 0) {
+                    showFileError('No valid Call IDs were found in this file.');
+                    return;
+                }
+
+                document.getElementById('fileError').classList.add('hidden');
+                document.getElementById('multipleCallIds').value = callIds.join('\n');
+                document.getElementById('fileSelected').textContent = `✓ ${file.name} (${callIds.length} Call IDs found)`;
+                checkBatchSize();
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse Excel file
+        function parseExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // Get first sheet
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    // Convert to CSV text and parse
+                    const csvText = XLSX.utils.sheet_to_csv(worksheet);
+                    const callIds = extractCallIdsFromText(csvText);
+
+                    if (callIds.length === 0) {
+                        showFileError('No valid Call IDs were found in this file.');
+                        return;
+                    }
+
+                    document.getElementById('fileError').classList.add('hidden');
+                    document.getElementById('multipleCallIds').value = callIds.join('\n');
+                    document.getElementById('fileSelected').textContent = `✓ ${file.name} (${callIds.length} Call IDs found)`;
+                    checkBatchSize();
+                } catch (error) {
+                    showFileError('Failed to read the Excel file. The file may be corrupted or in an unsupported format.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Extract Call IDs from text (CSV content)
+        function extractCallIdsFromText(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            if (lines.length === 0) return [];
+
+            // Parse first line to check for headers
+            const firstLine = parseCSVLine(lines[0]);
+
+            // Check if this is a Call History report (has "Call ID" header)
+            const callIdColumnIndex = firstLine.findIndex(col =>
+                col.toLowerCase().replace(/['"]/g, '').trim() === 'call id'
+            );
+
+            if (callIdColumnIndex !== -1) {
+                // It's a Call History report - extract from the Call ID column
+                const callIds = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const columns = parseCSVLine(lines[i]);
+                    if (columns[callIdColumnIndex]) {
+                        const callId = columns[callIdColumnIndex].replace(/['"]/g, '').trim();
+                        if (callId && isValidCallId(callId)) {
+                            callIds.push(callId);
+                        }
+                    }
+                }
+                return callIds;
+            } else {
+                // Check if it's a simple list (single column of Call IDs)
+                const callIds = [];
+                for (const line of lines) {
+                    const firstCol = parseCSVLine(line)[0];
+                    if (firstCol) {
+                        const callId = firstCol.replace(/['"]/g, '').trim();
+                        if (callId && isValidCallId(callId)) {
+                            callIds.push(callId);
+                        }
+                    }
+                }
+                return callIds;
+            }
+        }
+
+        // Parse a single CSV line (handles quoted values with commas)
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            return result;
+        }
+
+        // Validate if a string looks like a Call ID (UUID format)
+        function isValidCallId(str) {
+            // UUID format: 8-4-4-4-12 hex characters
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            return uuidRegex.test(str);
+        }
+
+        // Drag and drop
+        const fileUpload = document.getElementById('fileUpload');
+
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const fileName = file.name.toLowerCase();
+                if (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                    document.getElementById('csvFile').files = e.dataTransfer.files;
+                    handleFileSelect({ target: { files: [file] } });
+                } else {
+                    showFileError('Unsupported file format. Please upload a .csv or .xlsx file.');
+                }
+            }
+        });
+
+        // Start download
+        async function startDownload() {
+            const isSingle = document.getElementById('modeSingle').checked;
+            let callIds = [];
+
+            if (isSingle) {
+                const singleId = document.getElementById('singleCallId').value.trim();
+                if (!singleId) {
+                    alert('Please enter a Call ID');
+                    return;
+                }
+                callIds = [singleId];
+            } else {
+                const text = document.getElementById('multipleCallIds').value;
+                callIds = text.split('\n')
+                    .map(id => id.trim())
+                    .filter(id => id.length > 0);
+
+                if (callIds.length === 0) {
+                    alert('Please enter at least one Call ID or upload a CSV file');
+                    return;
+                }
+            }
+
+            // Disable button and show progress
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<span class="spinner"></span> Downloading...';
+
+            if (callIds.length === 1) {
+                await downloadSingle(callIds[0]);
+            } else {
+                await downloadMultiple(callIds);
+            }
+
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = isSingle ? 'Download Recording' : 'Download Recordings';
+        }
+
+        // Download single recording
+        async function downloadSingle(callId) {
+            try {
+                const url = `https://${instanceName}-api.aswat.co/callHistory/${callId}/recording?access_token=${accessToken}`;
+                const response = await fetch(url);
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `${callId}.mp3`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(downloadUrl);
+                } else {
+                    alert('Recording not found. Please check the Call ID and try again.');
+                }
+            } catch (error) {
+                alert('Download failed. Please try again.');
+            }
+        }
+
+        // Download multiple recordings
+        async function downloadMultiple(callIds) {
+            const progressSection = document.getElementById('progressSection');
+            const progressBar = document.getElementById('progressBar');
+            const progressStatus = document.getElementById('progressStatus');
+            const progressCount = document.getElementById('progressCount');
+            const progressList = document.getElementById('progressList');
+
+            progressSection.classList.add('active');
+            progressList.innerHTML = '';
+            progressBar.style.width = '0%';
+            progressCount.textContent = `0/${callIds.length}`;
+            progressStatus.textContent = 'Starting downloads...';
+
+            const zip = new JSZip();
+            let completed = 0;
+            let successful = 0;
+            let failed = 0;
+
+            for (const callId of callIds) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'progress-item pending';
+                itemDiv.innerHTML = `<span class="spinner"></span> ${callId}`;
+                progressList.appendChild(itemDiv);
+                progressList.scrollTop = progressList.scrollHeight;
+
+                try {
+                    const url = `https://${instanceName}-api.aswat.co/callHistory/${callId}/recording?access_token=${accessToken}`;
+                    const response = await fetch(url);
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        zip.file(`${callId}.mp3`, blob);
+                        itemDiv.className = 'progress-item success';
+                        itemDiv.innerHTML = `✅ ${callId}`;
+                        successful++;
+                    } else {
+                        itemDiv.className = 'progress-item error';
+                        itemDiv.innerHTML = `❌ ${callId} - Not found`;
+                        failed++;
+                    }
+                } catch (error) {
+                    itemDiv.className = 'progress-item error';
+                    itemDiv.innerHTML = `❌ ${callId} - Network error`;
+                    failed++;
+                }
+
+                completed++;
+                const percent = Math.round((completed / callIds.length) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressCount.textContent = `${completed}/${callIds.length}`;
+                progressStatus.textContent = `Downloading... (${successful} successful, ${failed} failed)`;
+            }
+
+            progressStatus.textContent = `Complete! ${successful} successful, ${failed} failed`;
+
+            // Generate and download ZIP if we have any successful downloads
+            if (successful > 0) {
+                progressStatus.textContent = 'Creating ZIP file...';
+                const content = await zip.generateAsync({ type: 'blob' });
+                const downloadUrl = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `recordings_${new Date().toISOString().slice(0, 10)}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+                progressStatus.textContent = `Done! ${successful} recordings downloaded, ${failed} failed`;
+            } else {
+                progressStatus.textContent = 'No recordings were found';
+            }
+        }
+
+        // Toggle FAQ
+        function toggleFaq(button) {
+            const faqItem = button.parentElement;
+            faqItem.classList.toggle('open');
+        }
+
+        // Enter key support
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') login();
+        });
+
+        document.getElementById('singleCallId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') startDownload();
+        });
+    </script>
+</body>
+</html>
