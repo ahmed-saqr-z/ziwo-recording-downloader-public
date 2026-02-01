@@ -678,7 +678,7 @@
         <!-- Login Card -->
         <div class="card" id="loginCard">
             <h2 class="card-title">Connect to Your Instance</h2>
-            <p class="card-subtitle">Enter your ZIWO credentials to access call recordings</p>
+            <p class="card-subtitle">Enter your ZIWO admin credentials to access call recordings</p>
 
             <div id="loginError" class="alert alert-error hidden"></div>
 
@@ -694,14 +694,14 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" class="form-input" id="username" placeholder="Enter your username">
+                <label class="form-label">Admin Username</label>
+                <input type="text" class="form-input" id="username" placeholder="Enter your admin username">
             </div>
 
             <div class="form-group">
-                <label class="form-label">Password</label>
+                <label class="form-label">Admin Password</label>
                 <div class="password-wrapper">
-                    <input type="password" class="form-input" id="password" placeholder="Enter your password">
+                    <input type="password" class="form-input" id="password" placeholder="Enter your admin password">
                     <button type="button" class="password-toggle" onclick="togglePassword()">
                         <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -966,7 +966,7 @@
                     document.getElementById('downloadCard').classList.remove('hidden');
                     document.getElementById('sessionInfo').style.display = 'flex';
                 } else {
-                    showLoginError('Invalid credentials. Please check your instance name, username, and password.');
+                    showLoginError('Invalid credentials. Please check your instance name, admin username, and admin password.');
                 }
             } catch (error) {
                 showLoginError('Connection failed. Please check your instance name and try again.');
